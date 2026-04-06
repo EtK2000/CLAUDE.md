@@ -7,8 +7,12 @@
   final fields initialized inline (at definition) — those don't need `@NonNull`. Final fields set in
   constructors DO need it
 - Always add `@CheckResult` on methods that return a value without side effects
+- Always add `@Override` on overriding methods, including explicitly declared record accessors
 - Annotations are always sorted alphabetically, whether stacked (on methods/classes, each on its own
   line) or inline (on parameters, e.g. `@NonNull @NonUiContext Context ctx`)
+- Modifiers in JLS order: `public`/`protected`/`private`, `abstract`, `static`, `final`,
+  `transient`, `volatile`, `synchronized`, `native`, `strictfp`
+- No redundant modifiers (e.g. `public` on interface methods, `static` on interface fields)
 
 ## Class Structure (top to bottom, separated by blank lines)
 
@@ -39,6 +43,12 @@
 - Least accessible visibility (private > package-private > protected > public)
 - Specific API methods over generic ones when available (e.g. `.getFirst()` over `.get(0)`), as long
   as there are no compatibility issues (e.g. Android SDK min version)
+- `StandardCharsets` constants over charset name strings (e.g. `StandardCharsets.UTF_8` over
+  `"UTF-8"`). Requires Android API 19+
+- Lambda expressions over anonymous classes for functional interfaces
+- Literal suffix over widening cast (e.g. `100L` over `(long) 100`)
+- Imports over fully qualified names
+- `.equals()` over `==` for String comparisons
 - Reuse existing code or extract utilities over duplication
 
 ## Fields Sorting (within static or instance group)
@@ -56,6 +66,10 @@
    Visibility (public/private) does NOT affect ordering.
 3. Multiple fields of the same type on a single line if not setting a value, sorted alphabetically
    by field name
+4. Exception: when a field's value depends on another field, keep the dependency order instead of
+   alphabetical. This applies to all fields (static finals, instance fields, locals, etc.).
+   Example: `NOW` before `FUTURE = NOW + ...` before `PAST = NOW - ...` — `FUTURE` and `PAST`
+   depend on `NOW`, so `NOW` must come first despite alphabetical order
 
 ## Method Sorting
 
@@ -92,7 +106,8 @@
 - No braces on `case`/`default` blocks unless required (i.e. a variable is defined in the case's
   direct scope)
 - Switch cases sorted: alphabetically for names, numerically for literals. Named constants
-  sort before numeric literals. For fall-through labels (`case A: case B:`), sort by the first
+  sort before numeric literals. Numeric/digit content sorts before alphabetic content in
+  char/string literals. For fall-through labels (`case A: case B:`), sort by the first
   label. For comma-separated labels (`case A, B ->`), sort within the list AND sort cases by
   their first label. `default` must always be last
 - Prefer enhanced (arrow) switch syntax (`case X ->`) over traditional (`case X:`) when each
@@ -100,11 +115,23 @@
   (no body) are fine, they become comma-separated in enhanced syntax
 - `else`/`catch`/`finally` on their own line, not cuddled with the closing brace (i.e. `}\nelse`,
   not `} else`)
+- LF line endings
+- One statement per line
 - No unused imports
+- No unused local variables
 - No trailing whitespace
 - Blank lines must be completely empty
 - No trailing newline at end of file
 - No redundant casts
+- No redundant `super()` calls (implicit when no-arg)
+- No explicit initialization to default values (`int x = 0` -> `int x`,
+  `Object o = null` -> `Object o`)
+- No reassignment of pattern variables from `instanceof`
+- No redundant null checks with `instanceof` (`x != null && x instanceof Foo` ->
+  `x instanceof Foo`)
+- Simplify boolean expressions (`b == true` -> `b`, `b == false` -> `!b`, `!false` -> `true`)
+- No emoji or special Unicode symbols in code
+- Uppercase hex digits (`0xFF` not `0xff`), lowercase `0x`/`0b` prefixes, uppercase `L` suffix
 - Only use `this.XXX` when required (e.g. shadowing) or when assigning an instance field
 - Method parameters are never `final`; local variables are `final` wherever possible (except
   for-each
@@ -169,8 +196,23 @@
 
 - Always think about weird input or edge cases
 - Tests should cover all such cases
+- Check `docs/` for project-specific guides and conventions. Follow them as a driving process while
+  writing code, not as a post-hoc audit
+- Branch coverage: every conditional/guard must have a dedicated test that exercises it. After
+  writing code, trace each branch and verify it has a test
+- Boundary pairing: for every value a function accepts, write a corresponding rejection test with a
+  "nearby" invalid value. This catches over-matching where the code is too permissive
+- Axis coverage: when code handles multiple independent dimensions, test each axis individually.
+  Cross-axis tests are only needed when axes interact in the code
+- Integration tests: every entry in a dispatch map/registry must have an end-to-end test.
+  Assert the exact full output, not just spot-check fragments with contains/assertFalse. This
+  catches unintended modifications to lines the test wasn't specifically looking at
 - Only add messages to assertions when they provide non-obvious context (e.g. guard assertions).
   Don't add messages when the test name already describes the expected behavior
+- After ANY code change (including test resources, comments, reordering), run `./gradlew check` to
+  verify nothing is broken. This runs all tests, checkstyle on main code, test code, AND test
+  resources. Do NOT use a subset of tasks like `checkstyleMain checkstyleTest test` -- that misses
+  `checkstyleTestResources` and `validatePlugins`
 
 # Writing Style
 
